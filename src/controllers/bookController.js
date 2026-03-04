@@ -1,29 +1,20 @@
 const Book = require('../models/Book');
-const Category = require('../models/Category'); // Đảm bảo import Model Category
-const Inventory = require('../models/Inventory'); // Đảm bảo import Model Inventory
+const Category = require('../models/Category'); 
+const Inventory = require('../models/Inventory'); 
 
 // @desc    Lấy tất cả sách (Gộp cả tên Category và Tồn kho)
 // @route   GET /api/books
 const getBooks = async (req, res) => {
   try {
-    // 1. Lấy toàn bộ sách và dùng .populate() để lấy 'name' từ bảng Category
     const books = await Book.find({}).populate('category', 'name');
-    
-    // 2. Lấy toàn bộ dữ liệu từ bảng Kho
     const inventories = await Inventory.find({});
 
-    // 3. Gộp số lượng tồn kho vào từng cuốn sách để gửi lên Frontend
     const booksWithDetails = books.map((book) => {
-      // Tìm kho có bookid khớp với _id của sách
       const inv = inventories.find(i => i.bookid.toString() === book._id.toString());
-      
       return {
         ...book._doc,
-        // Nếu sách có category, lấy tên hiển thị, nếu không để trống
         categoryName: book.category ? book.category.name : 'Chưa phân loại',
-        // Giữ lại ID category để Frontend dùng khi Edit
         categoryId: book.category ? book.category._id : '',
-        // Lấy số lượng từ bảng Inventory, nếu không có mặc định là 0
         stockQuantity: inv ? inv.stockQuantity : 0, 
         status: inv ? inv.status : 'out_of_stock'
       };
@@ -35,12 +26,42 @@ const getBooks = async (req, res) => {
   }
 };
 
+// @desc    Tạo 1 cuốn sách mới (Kèm tạo mới trong Kho)
+// @route   POST /api/books
+// @access  Private/Admin
+const createBook = async (req, res) => {
+  try {
+    // 1. Tạo sách ảo mặc định
+    const book = new Book({
+      title: 'Tên sách mới',
+      author: 'Tên tác giả',
+      user: req.user._id, // Lấy ID của Admin đang thao tác
+      image: 'https://via.placeholder.com/300x400?text=Chua+co+anh',
+      description: 'Mô tả chi tiết cuốn sách...',
+      price: 0
+    });
+
+    const createdBook = await book.save();
+
+    // 2. Tạo luôn một bản ghi Kho (Inventory) trống cho cuốn sách này
+    await Inventory.create({
+      bookid: createdBook._id,
+      stockQuantity: 0,
+      soldQuantity: 0,
+      status: 'out_of_stock'
+    });
+
+    res.status(201).json(createdBook);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi tạo sách', error: error.message });
+  }
+};
 
 // @desc    Cập nhật thông tin sách & Kho
 // @route   PUT /api/books/:id
+// @access  Private/Admin
 const updateBook = async (req, res) => {
   try {
-    // Lưu ý: category ở đây Frontend gửi lên phải là _id của Category
     const { title, price, description, image, author, category, stockQuantity } = req.body;
     
     // 1. CẬP NHẬT BẢNG SÁCH
@@ -52,11 +73,11 @@ const updateBook = async (req, res) => {
     book.description = description || book.description;
     book.image = image || book.image;
     book.author = author || book.author;
-    if (category) book.category = category; // Gắn ID Category mới
+    if (category) book.category = category; 
 
     await book.save();
 
-    // 2. CẬP NHẬT BẢNG KHO (Chú ý dùng 'bookid' theo đúng schema của bạn)
+    // 2. CẬP NHẬT BẢNG KHO
     let inventory = await Inventory.findOne({ bookid: book._id });
     
     if (inventory) {
@@ -66,7 +87,6 @@ const updateBook = async (req, res) => {
       }
       await inventory.save();
     } else {
-      // Nếu chưa có trong kho thì tạo mới
       await Inventory.create({
         bookid: book._id,
         stockQuantity: stockQuantity || 0,
@@ -80,16 +100,20 @@ const updateBook = async (req, res) => {
   }
 };
 
-// module.exports = { getBooks, updateBook, ... };
-// @desc    Xóa sách
+// @desc    Xóa sách (Xóa luôn cả trong Kho)
 // @route   DELETE /api/books/:id
 // @access  Private/Admin
 const deleteBook = async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
     if (book) {
+      // 1. Xóa sách
       await book.deleteOne();
-      res.json({ message: 'Đã xóa sách thành công' });
+      
+      // 2. Xóa luôn dữ liệu kho của sách này để tránh rác DB
+      await Inventory.findOneAndDelete({ bookid: req.params.id });
+
+      res.json({ message: 'Đã xóa sách và dữ liệu kho thành công' });
     } else {
       res.status(404).json({ message: 'Không tìm thấy sách' });
     }
@@ -98,4 +122,5 @@ const deleteBook = async (req, res) => {
   }
 };
 
+// Lần này ĐẢM BẢO đã có đủ 4 hàm ở trên!
 module.exports = { getBooks, createBook, updateBook, deleteBook };
