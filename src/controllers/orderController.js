@@ -1,4 +1,7 @@
 const Order = require('../models/Order');
+const User = require('../models/User');
+const Book = require('../models/Book'); // Thêm import Book để tính tổng sản phẩm
+
 
 // @desc    Tạo đơn hàng mới
 // @route   POST /api/orders
@@ -122,5 +125,41 @@ const updateOrderStatus = async (req, res) => {
     res.status(500).json({ message: 'Lỗi khi cập nhật trạng thái', error: error.message });
   }
 };
+// @desc    Lấy dữ liệu thống kê cho Dashboard
+// @route   GET /api/orders/stats/dashboard
+// @access  Private/Admin
+const getDashboardStats = async (req, res) => {
+  try {
+    const totalOrders = await Order.countDocuments();
+    const totalUsers = await User.countDocuments();
+    const totalProducts = await Book.countDocuments();
+
+    // Tính tổng doanh thu (Bỏ qua các đơn đã Hủy)
+    const validOrders = await Order.find({ status: { $ne: 'Cancelled' } });
+    const totalRevenue = validOrders.reduce((acc, order) => acc + order.totalPrice, 0);
+
+    // Thống kê trạng thái đơn hàng để vẽ biểu đồ
+    const orderStats = [
+      { name: 'Chờ xác nhận', count: await Order.countDocuments({ status: 'Pending' }) },
+      { name: 'Chờ lấy hàng', count: await Order.countDocuments({ status: 'Processing' }) },
+      { name: 'Đang giao', count: await Order.countDocuments({ status: 'Shipping' }) },
+      { name: 'Đã giao', count: await Order.countDocuments({ status: 'Delivered' }) },
+      { name: 'Đã hủy', count: await Order.countDocuments({ status: 'Cancelled' }) },
+    ];
+
+    res.json({
+      totalOrders,
+      totalUsers,
+      totalProducts,
+      totalRevenue,
+      orderStats
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi lấy thống kê', error: error.message });
+  }
+};
+
+// Nhớ export thêm getDashboardStats ở cuối file
+// module.exports = { ..., getDashboardStats };
 // ĐÃ THÊM CANCELORDER VÀO ĐÂY
-module.exports = { addOrderItems, getOrderById, getMyOrders, cancelOrder , getAllOrders, updateOrderStatus};
+module.exports = { addOrderItems, getOrderById, getMyOrders, cancelOrder , getAllOrders, updateOrderStatus, getDashboardStats };
