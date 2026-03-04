@@ -1,64 +1,86 @@
 const Book = require('../models/Book');
+const Category = require('../models/Category'); // Đảm bảo import Model Category
+const Inventory = require('../models/Inventory'); // Đảm bảo import Model Inventory
 
-// @desc    Lấy tất cả sách
+// @desc    Lấy tất cả sách (Gộp cả tên Category và Tồn kho)
 // @route   GET /api/books
 const getBooks = async (req, res) => {
-  const books = await Book.find({});
-  res.json(books);
-};
-
-// @desc    Tạo 1 cuốn sách mẫu (Để Admin vào sửa lại sau)
-// @route   POST /api/books
-// @access  Private/Admin
-const createBook = async (req, res) => {
   try {
-    const book = new Book({
-      title: 'Tên sách mới',
-      author: 'Tên tác giả',
-      user: req.user._id, // ID của Admin tạo
-      image: 'https://via.placeholder.com/300x400?text=Chua+co+anh',
-      description: 'Mô tả chi tiết cuốn sách...',
-      category: 'Danh mục',
-      price: 0,
-      countInStock: 0,
-      rating: 0,
-      numReviews: 0,
+    // 1. Lấy toàn bộ sách và dùng .populate() để lấy 'name' từ bảng Category
+    const books = await Book.find({}).populate('category', 'name');
+    
+    // 2. Lấy toàn bộ dữ liệu từ bảng Kho
+    const inventories = await Inventory.find({});
+
+    // 3. Gộp số lượng tồn kho vào từng cuốn sách để gửi lên Frontend
+    const booksWithDetails = books.map((book) => {
+      // Tìm kho có bookid khớp với _id của sách
+      const inv = inventories.find(i => i.bookid.toString() === book._id.toString());
+      
+      return {
+        ...book._doc,
+        // Nếu sách có category, lấy tên hiển thị, nếu không để trống
+        categoryName: book.category ? book.category.name : 'Chưa phân loại',
+        // Giữ lại ID category để Frontend dùng khi Edit
+        categoryId: book.category ? book.category._id : '',
+        // Lấy số lượng từ bảng Inventory, nếu không có mặc định là 0
+        stockQuantity: inv ? inv.stockQuantity : 0, 
+        status: inv ? inv.status : 'out_of_stock'
+      };
     });
 
-    const createdBook = await book.save();
-    res.status(201).json(createdBook);
+    res.json(booksWithDetails);
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi tạo sách', error: error.message });
+    res.status(500).json({ message: 'Lỗi lấy danh sách sách', error: error.message });
   }
 };
 
-// @desc    Cập nhật thông tin sách
+
+// @desc    Cập nhật thông tin sách & Kho
 // @route   PUT /api/books/:id
-// @access  Private/Admin
 const updateBook = async (req, res) => {
   try {
-    const { title, price, description, image, author, category, countInStock } = req.body;
+    // Lưu ý: category ở đây Frontend gửi lên phải là _id của Category
+    const { title, price, description, image, author, category, stockQuantity } = req.body;
+    
+    // 1. CẬP NHẬT BẢNG SÁCH
     const book = await Book.findById(req.params.id);
+    if (!book) return res.status(404).json({ message: 'Không tìm thấy sách' });
 
-    if (book) {
-      book.title = title;
-      book.price = price;
-      book.description = description;
-      book.image = image;
-      book.author = author;
-      book.category = category;
-      book.countInStock = countInStock;
+    book.title = title || book.title;
+    book.price = price || book.price;
+    book.description = description || book.description;
+    book.image = image || book.image;
+    book.author = author || book.author;
+    if (category) book.category = category; // Gắn ID Category mới
 
-      const updatedBook = await book.save();
-      res.json(updatedBook);
+    await book.save();
+
+    // 2. CẬP NHẬT BẢNG KHO (Chú ý dùng 'bookid' theo đúng schema của bạn)
+    let inventory = await Inventory.findOne({ bookid: book._id });
+    
+    if (inventory) {
+      if (stockQuantity !== undefined) {
+        inventory.stockQuantity = stockQuantity;
+        inventory.status = stockQuantity > 0 ? 'in_stock' : 'out_of_stock';
+      }
+      await inventory.save();
     } else {
-      res.status(404).json({ message: 'Không tìm thấy sách' });
+      // Nếu chưa có trong kho thì tạo mới
+      await Inventory.create({
+        bookid: book._id,
+        stockQuantity: stockQuantity || 0,
+        status: (stockQuantity || 0) > 0 ? 'in_stock' : 'out_of_stock'
+      });
     }
+
+    res.json({ message: 'Cập nhật thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi cập nhật sách', error: error.message });
   }
 };
 
+// module.exports = { getBooks, updateBook, ... };
 // @desc    Xóa sách
 // @route   DELETE /api/books/:id
 // @access  Private/Admin
