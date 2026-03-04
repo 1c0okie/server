@@ -27,6 +27,7 @@ router.route('/:id/status').put(protect, admin, updateOrderStatus);
 // ROUTES DÀNH CHO USER (Phải đặt ở dưới)
 // ==========================================
 router.route('/').post(protect, addOrderItems);
+router.route('/:id/status').put(protect, admin, updateOrderStatus);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/:id/cancel').put(protect, cancelOrder);
 router.route('/:id').get(protect, getOrderById);
