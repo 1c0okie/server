@@ -31,5 +31,14 @@ const protect = async (req, res, next) => {
     res.status(401).json({ message: 'Không có quyền truy cập, thiếu Token' });
   }
 };
+// Nếu chưa có thì thêm vào:
+const admin = (req, res, next) => {
+  if (req.user && req.user.isAdmin) {
+    next();
+  } else {
+    res.status(401).json({ message: 'Không có quyền truy cập, yêu cầu tài khoản Admin' });
+  }
+};
+// nhớ export { protect, admin }
 
-module.exports = { protect };
+module.exports = { protect, admin };

@@ -79,5 +79,48 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+// @desc    Lấy danh sách TẤT CẢ đơn hàng (Dành cho Admin)
+// @route   GET /api/orders
+// @access  Private/Admin
+const getAllOrders = async (req, res) => {
+  try {
+    // .populate() để lấy tên và email của khách hàng từ bảng User
+    // .sort({ createdAt: -1 }) để đưa đơn hàng mới đặt lên đầu danh sách
+    const orders = await Order.find({})
+      .populate('user', 'id name email')
+      .sort({ createdAt: -1 }); 
+      
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi khi lấy danh sách đơn hàng', error: error.message });
+  }
+};
+
+// @desc    Cập nhật trạng thái đơn hàng (Admin duyệt/giao đơn)
+// @route   PUT /api/orders/:id/status
+// @access  Private/Admin
+const updateOrderStatus = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (order) {
+      // Cập nhật trạng thái mới gửi từ Frontend lên
+      order.status = req.body.status || order.status;
+
+      // Nếu Admin chọn "Đã giao" (Delivered), tự động đánh dấu thời gian giao hàng
+      if (req.body.status === 'Delivered') {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+      }
+
+      const updatedOrder = await order.save();
+      res.json(updatedOrder);
+    } else {
+      res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi khi cập nhật trạng thái', error: error.message });
+  }
+};
 // ĐÃ THÊM CANCELORDER VÀO ĐÂY
-module.exports = { addOrderItems, getOrderById, getMyOrders, cancelOrder };
+module.exports = { addOrderItems, getOrderById, getMyOrders, cancelOrder , getAllOrders, updateOrderStatus};
