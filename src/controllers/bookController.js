@@ -122,5 +122,23 @@ const deleteBook = async (req, res) => {
   }
 };
 
-// Lần này ĐẢM BẢO đã có đủ 4 hàm ở trên!
-module.exports = { getBooks, createBook, updateBook, deleteBook };
+// @desc    Lấy chi tiết 1 cuốn sách (Cho User xem trang chi tiết)
+// @route   GET /api/books/:id
+const getBookById = async (req, res) => {
+  try {
+    // Populate để lấy tên category thay vì chỉ hiện ID
+    const book = await Book.findById(req.params.id).populate('category', 'name');
+    
+    if (book) {
+      // (Tùy chọn) Bạn có thể gọi thêm Inventory ở đây nếu muốn hiển thị tồn kho ở trang chi tiết
+      res.json(book);
+    } else {
+      res.status(404).json({ message: 'Không tìm thấy sách' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi hệ thống', error: error.message });
+  }
+};
+
+// VÀ SỬA LẠI DÒNG EXPORT CUỐI CÙNG THÀNH THẾ NÀY:
+module.exports = { getBooks, getBookById, createBook, updateBook, deleteBook };
