@@ -4,17 +4,24 @@ const Inventory = require('../models/Inventory');
 
 // @desc    Lấy tất cả sách (Gộp cả tên Category và Tồn kho)
 // @route   GET /api/books
+// @desc    Lấy tất cả sách (Gộp cả tên Category và Tồn kho) - BẢN AN TOÀN
+// @route   GET /api/books
 const getBooks = async (req, res) => {
   try {
     const books = await Book.find({}).populate('category', 'name');
     const inventories = await Inventory.find({});
 
     const booksWithDetails = books.map((book) => {
-      const inv = inventories.find(i => i.bookid.toString() === book._id.toString());
+      // BỌC AN TOÀN: Kiểm tra i.bookid và book._id có tồn tại không trước khi .toString()
+      const inv = inventories.find(i => 
+        i.bookid && book._id && i.bookid.toString() === book._id.toString()
+      );
+      
       return {
         ...book._doc,
-        categoryName: book.category ? book.category.name : 'Chưa phân loại',
-        categoryId: book.category ? book.category._id : '',
+        // BỌC AN TOÀN: Kiểm tra xem category có bị null không
+        categoryName: (book.category && book.category.name) ? book.category.name : 'Chưa phân loại',
+        categoryId: (book.category && book.category._id) ? book.category._id : '',
         stockQuantity: inv ? inv.stockQuantity : 0, 
         status: inv ? inv.status : 'out_of_stock'
       };
@@ -22,6 +29,8 @@ const getBooks = async (req, res) => {
 
     res.json(booksWithDetails);
   } catch (error) {
+    // In lỗi chi tiết ra màn hình log của Render để dễ dò
+    console.error("❌ LỖI TẠI GETBOOKS:", error); 
     res.status(500).json({ message: 'Lỗi lấy danh sách sách', error: error.message });
   }
 };
