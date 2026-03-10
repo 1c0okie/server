@@ -106,6 +106,66 @@ const updateUserProfile = async (req, res) => {
     res.status(404).json({ message: 'Không tìm thấy người dùng' });
   }
 };
+// @desc    Lấy danh sách tất cả người dùng
+// @route   GET /api/users
+// @access  Private/Admin
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find({});
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi lấy danh sách', error: error.message });
+  }
+};
 
+// @desc    Cập nhật quyền (Role) của người dùng
+// @route   PUT /api/users/:id/role
+// @access  Private/Admin
+const updateUserRole = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (user) {
+      // Không cho phép Admin tự hạ quyền của chính mình
+      if (user._id.toString() === req.user._id.toString()) {
+        return res.status(400).json({ message: 'Bạn không thể tự thay đổi quyền của chính mình!' });
+      }
+
+      user.isAdmin = req.body.isAdmin;
+      const updatedUser = await user.save();
+      res.json(updatedUser);
+    } else {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi cập nhật quyền', error: error.message });
+  }
+};
+
+// @desc    Xóa người dùng
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+      // Không cho phép Admin tự xóa chính mình
+      if (user._id.toString() === req.user._id.toString()) {
+        return res.status(400).json({ message: 'Bạn không thể tự xóa tài khoản của mình!' });
+      }
+      
+      await user.deleteOne();
+      res.json({ message: 'Đã xóa người dùng thành công' });
+    } else {
+      res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi khi xóa', error: error.message });
+  }
+};
+
+// Đừng quên export 3 hàm này ra nhé!
+// module.exports = { ..., getUsers, updateUserRole, deleteUser };
 // Xuất tất cả các hàm ở cuối cùng
-module.exports = { authUser, registerUser, getUserProfile, updateUserProfile };
+module.exports = { authUser, registerUser, getUserProfile, updateUserProfile, getUsers, updateUserRole, deleteUser };
