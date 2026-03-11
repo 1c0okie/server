@@ -8,7 +8,8 @@ const Inventory = require('../models/Inventory');
 // @route   GET /api/books
 const getBooks = async (req, res) => {
   try {
-    const books = await Book.find({}).populate('category', 'name');
+    const books = await Book.find({}).populate('category', 'name') // Lấy trường 'name' của Category
+      .populate('author', 'name');  // Lấy trường 'name' của Author
     const inventories = await Inventory.find({});
 
     const booksWithDetails = books.map((book) => {
