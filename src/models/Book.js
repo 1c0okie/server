@@ -2,7 +2,12 @@ const mongoose = require('mongoose');
 
 const Bookchema = mongoose.Schema({
   title: { type: String, required: true },
-  author: { type: String, required: true },
+  // Thay thế chỗ khai báo author cũ bằng đoạn này:
+  author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Author', // Trỏ tới bảng Author vừa tạo
+    required: true
+  },
   description: { type: String },
   category: { type: String, required: true },
   price: { type: Number, required: true },

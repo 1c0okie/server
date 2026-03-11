@@ -3,6 +3,7 @@ const cors = require('cors');
 const orderRoutes = require('./routes/orderRoutes'); // <--- 1. Import mới
 const bookRoutes = require('./routes/bookRoutes');
 const userRoutes = require('./routes/userRoutes'); // <--- 1. Import mới
+const authorRoutes = require('./routes/authorRoutes');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json()); // Để server hiểu dữ liệu JSON gửi lên
 app.use('/api/books', bookRoutes);
 app.use('/api/users', userRoutes); // <--- 2. Sử dụng route
 app.use('/api/orders', orderRoutes); // <--- 2. Sử dụng route
+app.use('/api/authors', authorRoutes);
 
 // Test Route cơ bản
 app.get('/', (req, res) => {
